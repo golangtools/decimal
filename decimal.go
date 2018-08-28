@@ -342,7 +342,7 @@ func (d *Decimal) GetDigitsFrac() int8 {
 	return d.digitsFrac
 }
 
-func (d *Decimal)SetMarshalJSONWithoutQuotes(v bool) *Decimal {
+func (d *Decimal) SetMarshalJSONWithoutQuotes(v bool) *Decimal {
 	d.marshalJSONWithoutQuotes = v
 	return d
 }
@@ -1724,8 +1724,6 @@ func (d *Decimal) ModFloat(from float64) *Decimal {
 	return ret
 }
 
-
-
 func (d *Decimal) AddString(from string) (*Decimal, error) {
 	dm, err := NewDecFromString(from)
 	if err != nil {
@@ -1796,7 +1794,6 @@ func (d *Decimal) ModString(from string) (*Decimal, error) {
 	return ret, nil
 }
 
-
 // decimalBinSize returns the size of array to hold a binary representation of a decimal.
 func decimalBinSize(precision, frac int) int {
 	digitsInt := precision - frac
@@ -1850,7 +1847,9 @@ func writeWord(b []byte, word int32, size int) {
 func (d *Decimal) Compare(to *Decimal) int {
 	if d.negative == to.negative {
 		cmp, err := doSub(d, to, nil)
-		log.Println(errors.Trace(err))
+		if err != nil {
+			log.Println(errors.Trace(err))
+		}
 		return cmp
 	}
 	if d.negative {
@@ -1921,6 +1920,21 @@ func (d *Decimal) SetBSON(raw bson.Raw) error {
 		*d = *NewDecFromFloat(f)
 	}
 	return e
+}
+
+func (d *Decimal) FromDB(data []byte) error {
+	return d.FromString(data)
+}
+
+func (d *Decimal) ToDB() ([]byte, error) {
+	return d.ToString(), nil
+}
+
+func (d *Decimal) FromForm(v []string) error {
+	if len(v) == 0 || v[0] == ""{
+		return nil
+	}
+	return d.FromString([]byte(v[0]))
 }
 
 // DecimalNeg reverses decimal's sign.
@@ -2699,7 +2713,7 @@ func DecimalPeak(b []byte) (int, error) {
 }
 
 func NewDecimal(digitsFrac ...int8) *Decimal {
-	d :=  new(Decimal)
+	d := new(Decimal)
 	d.marshalJSONWithoutQuotes = MarshalJSONWithoutQuotes
 	if len(digitsFrac) > 0 {
 		d.digitsFrac = digitsFrac[0]
