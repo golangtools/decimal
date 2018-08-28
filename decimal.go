@@ -21,10 +21,13 @@ import (
 	"log"
 	"unicode"
 	"strings"
+	"fmt"
 )
 
 // RoundMode is the type for round mode.
 type RoundMode string
+
+var MarshalJSONWithoutQuotes bool
 
 var (
 	ErrOverflow  = errors.New("value is out of range")
@@ -287,6 +290,27 @@ func digitsToWords(digits int) int {
 	return (digits + digitsPerWord - 1) / digitsPerWord
 }
 
+func unquoteIfQuoted(value interface{}) (v string, quote bool, err error) {
+	var bytes []byte
+
+	switch v := value.(type) {
+	case string:
+		bytes = []byte(v)
+	case []byte:
+		bytes = v
+	default:
+		return "", false, fmt.Errorf("Could not convert value '%+v' to byte array of type '%T'",
+			value, value)
+	}
+
+	// If the amount is quoted, strip the quotes
+	if len(bytes) > 2 && bytes[0] == '"' && bytes[len(bytes)-1] == '"' {
+		bytes = bytes[1 : len(bytes)-1]
+		quote = true
+	}
+	return string(bytes), quote, nil
+}
+
 // DecimalStructSize is the struct size of Decimal.
 const DecimalStructSize = 40
 
@@ -299,6 +323,8 @@ type Decimal struct {
 	resultFrac int8 // result fraction digits.
 
 	negative bool
+
+	marshalJSONWithoutQuotes bool
 
 	//  wordBuf is an array of int32 words.
 	// A word is an int32 value can hold 9 digits.(0 <= word < wordBase)
@@ -315,11 +341,22 @@ func (d *Decimal) GetDigitsFrac() int8 {
 	return d.digitsFrac
 }
 
+func (d *Decimal)SetMarshalJSONWithoutQuotes(v bool) *Decimal {
+	d.marshalJSONWithoutQuotes = v
+	return d
+}
+
+func (d *Decimal) MarshalJSONWithoutQuotesL() bool {
+	return d.marshalJSONWithoutQuotes
+}
+
 // String returns the decimal string representation rounded to resultFrac.
 func (d *Decimal) String() string {
 	tmp := *d
-	err := tmp.Round(&tmp, int(tmp.resultFrac), ModeHalfEven)
-	log.Println(errors.Trace(err))
+	err := tmp.RoundTo(&tmp, int(tmp.resultFrac), ModeHalfEven)
+	if err != nil {
+		log.Println(errors.Trace(err))
+	}
 	return string(tmp.ToString())
 }
 
@@ -615,7 +652,7 @@ func (d *Decimal) Shift(shift int) error {
 		err = ErrTruncated
 		wordsFrac -= lack
 		diff := digitsFrac - wordsFrac*digitsPerWord
-		err1 := d.Round(d, digitEnd-point-diff, ModeHalfEven)
+		err1 := d.RoundTo(d, digitEnd-point-diff, ModeHalfEven)
 		if err1 != nil {
 			return errors.Trace(err1)
 		}
@@ -826,7 +863,7 @@ func (d *Decimal) doMiniRightShift(shift, beg, end int) {
 	d.wordBuf[bufFrom] = d.wordBuf[bufFrom] / powers10[shift]
 }
 
-// Round rounds the decimal to "frac" digits.
+// RoundTo rounds the decimal to "frac" digits.
 //
 //    to			- result buffer. d == to is allowed
 //    frac			- to what position after fraction point to round. can be negative!
@@ -840,7 +877,7 @@ func (d *Decimal) doMiniRightShift(shift, beg, end int) {
 //
 // RETURN VALUE
 //  eDecOK/eDecTruncated
-func (d *Decimal) Round(to *Decimal, frac int, roundMode RoundMode) (err error) {
+func (d *Decimal) RoundTo(to *Decimal, frac int, roundMode RoundMode) (err error) {
 	// wordsFracTo is the number of fraction words in buffer.
 	wordsFracTo := (frac + 1) / digitsPerWord
 	if frac > 0 {
@@ -1020,6 +1057,18 @@ func (d *Decimal) Round(to *Decimal, frac int, roundMode RoundMode) (err error) 
 	to.digitsFrac = int8(frac)
 	to.resultFrac = to.digitsFrac
 	return
+}
+
+func (d *Decimal) Round(frac int, roundMode ...RoundMode) *Decimal {
+	rm := ModeTruncate
+	if len(roundMode) > 0 {
+		rm = roundMode[0]
+	}
+	err := d.RoundTo(d, frac, rm)
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
 
 // FromInt sets the decimal value from int64.
@@ -1343,6 +1392,54 @@ func (d *Decimal) IsZero() bool {
 		}
 	}
 	return isZero
+}
+
+func (d *Decimal) GreaterZero() bool {
+	if d.negative {
+		return false
+	}
+
+	for _, val := range d.wordBuf {
+		if val != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Decimal) GreaterOrEqualZero() bool {
+	if d.negative {
+		for _, val := range d.wordBuf {
+			if val != 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (d *Decimal) LessZero() bool {
+	if !d.negative {
+		return false
+	}
+
+	for _, val := range d.wordBuf {
+		if val != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Decimal) LessOrEqualZero() bool {
+	if !d.negative {
+		for _, val := range d.wordBuf {
+			if val != 0 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // FromBin Restores decimal from its binary fixed-length representation.
@@ -1750,6 +1847,37 @@ func (d *Decimal) GreaterOrEqual(to *Decimal) bool {
 
 func (d *Decimal) LessOrEqual(to *Decimal) bool {
 	return d.Compare(to) <= 0
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
+	if string(decimalBytes) == "null" {
+		return nil
+	}
+
+	str, quote, err := unquoteIfQuoted(decimalBytes)
+	if err != nil {
+		return fmt.Errorf("Error decoding string '%s': %s", decimalBytes, err)
+	}
+
+	dec, err := NewDecFromString(str)
+	dec.marshalJSONWithoutQuotes = quote
+	*d = *dec
+	if err != nil {
+		return fmt.Errorf("Error decoding string '%s': %s", str, err)
+	}
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d Decimal) MarshalJSON() ([]byte, error) {
+	var str string
+	if d.marshalJSONWithoutQuotes {
+		str = d.String()
+	} else {
+		str = "\"" + d.String() + "\""
+	}
+	return []byte(str), nil
 }
 
 // DecimalNeg reverses decimal's sign.
@@ -2529,6 +2657,7 @@ func DecimalPeak(b []byte) (int, error) {
 
 func NewDecimal(digitsFrac ...int8) *Decimal {
 	d :=  new(Decimal)
+	d.marshalJSONWithoutQuotes = MarshalJSONWithoutQuotes
 	if len(digitsFrac) > 0 {
 		d.digitsFrac = digitsFrac[0]
 		d.resultFrac = digitsFrac[0]
@@ -2538,16 +2667,16 @@ func NewDecimal(digitsFrac ...int8) *Decimal {
 
 // NewDecFromInt creates a Decimal from int.
 func NewDecFromInt(i int64) *Decimal {
-	return new(Decimal).FromInt(i)
+	return NewDecimal().FromInt(i)
 }
 
 // NewDecFromUint creates a Decimal from uint.
 func NewDecFromUint(i uint64) *Decimal {
-	return new(Decimal).FromUint(i)
+	return NewDecimal().FromUint(i)
 }
 
 func NewDecFromFloat(f float64) *Decimal {
-	dec := new(Decimal)
+	dec := NewDecimal()
 	err := dec.FromFloat64(f)
 	if err != nil {
 		panic(err)
@@ -2556,7 +2685,7 @@ func NewDecFromFloat(f float64) *Decimal {
 }
 
 func NewDecFromString(s string) (*Decimal, error) {
-	dec := new(Decimal)
+	dec := NewDecimal()
 	err := dec.FromString([]byte(s))
 	if err != nil {
 		return nil, err
@@ -2566,7 +2695,7 @@ func NewDecFromString(s string) (*Decimal, error) {
 
 // NewDecFromStringMust creates a Decimal from string, as it returns no error.
 func NewDecFromStringMust(s string) *Decimal {
-	dec := new(Decimal)
+	dec := NewDecimal()
 	err := dec.FromString([]byte(s))
 	if err != nil {
 		log.Println(errors.Trace(err))
