@@ -22,6 +22,7 @@ import (
 	"unicode"
 	"strings"
 	"fmt"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // RoundMode is the type for round mode.
@@ -1899,7 +1900,7 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (d Decimal) MarshalJSON() ([]byte, error) {
+func (d *Decimal) MarshalJSON() ([]byte, error) {
 	var str string
 	if d.marshalJSONWithoutQuotes {
 		str = d.String()
@@ -1907,6 +1908,19 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 		str = "\"" + d.String() + "\""
 	}
 	return []byte(str), nil
+}
+
+func (d *Decimal) GetBSON() (interface{}, error) {
+	return d.ToFloat64()
+}
+
+func (d *Decimal) SetBSON(raw bson.Raw) error {
+	var f float64
+	e := raw.Unmarshal(&f)
+	if e == nil {
+		*d = *NewDecFromFloat(f)
+	}
+	return e
 }
 
 // DecimalNeg reverses decimal's sign.
