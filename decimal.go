@@ -1144,6 +1144,14 @@ func (d *Decimal) ToInt() (int64, error) {
 	return x, nil
 }
 
+func (d *Decimal) MustInt() int64 {
+	ret, err := d.ToInt()
+	if err != nil {
+		log.Println(errors.Trace(err))
+	}
+	return ret
+}
+
 // ToUint returns int part of the decimal, returns the result and errcode.
 func (d *Decimal) ToUint() (uint64, error) {
 	if d.negative {
@@ -1168,6 +1176,14 @@ func (d *Decimal) ToUint() (uint64, error) {
 	return x, nil
 }
 
+func (d *Decimal) MustUint() uint64 {
+	ret, err := d.ToUint()
+	if err != nil {
+		log.Println(errors.Trace(err))
+	}
+	return ret
+}
+
 // FromFloat64 creates a decimal from float64 value.
 func (d *Decimal) FromFloat64(f float64) error {
 	s := strconv.FormatFloat(f, 'g', -1, 64)
@@ -1181,6 +1197,14 @@ func (d *Decimal) ToFloat64() (float64, error) {
 		err = ErrOverflow
 	}
 	return f, err
+}
+
+func (d *Decimal) MustFloat64() float64 {
+	ret, err := d.ToFloat64()
+	if err != nil {
+		log.Println(errors.Trace(err))
+	}
+	return ret
 }
 
 /*
