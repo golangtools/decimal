@@ -346,7 +346,7 @@ func (d *Decimal)SetMarshalJSONWithoutQuotes(v bool) *Decimal {
 	return d
 }
 
-func (d *Decimal) MarshalJSONWithoutQuotesL() bool {
+func (d *Decimal) MarshalJSONWithoutQuotes() bool {
 	return d.marshalJSONWithoutQuotes
 }
 
@@ -1380,6 +1380,11 @@ func (d *Decimal) PrecisionAndFrac() (precision, frac int) {
 		precision = 1
 	}
 	return
+}
+
+func (d *Decimal) Copy() *Decimal {
+	var ret = *d
+	return &ret
 }
 
 // IsZero checks whether it's a zero decimal.
