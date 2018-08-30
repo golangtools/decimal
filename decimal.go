@@ -1927,6 +1927,9 @@ func (d *Decimal) FromDB(data []byte) error {
 }
 
 func (d *Decimal) ToDB() ([]byte, error) {
+	if d == nil {
+		return nil, nil
+	}
 	return d.ToString(), nil
 }
 
