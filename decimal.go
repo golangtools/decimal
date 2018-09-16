@@ -23,6 +23,7 @@ import (
 	"strings"
 	"fmt"
 	"gopkg.in/mgo.v2/bson"
+	"database/sql/driver"
 )
 
 // RoundMode is the type for round mode.
@@ -276,6 +277,7 @@ func countLeadingZeroes(i int, word int32) int {
   countTrailingZeros returns the number of trailing zeroes that can be removed from fraction.
 
   @param   i    start index
+
   @param   word  value to compare against list of powers of 10
 */
 func countTrailingZeroes(i int, word int32) int {
@@ -351,14 +353,12 @@ func (d *Decimal) MarshalJSONWithoutQuotes() bool {
 	return d.marshalJSONWithoutQuotes
 }
 
-// String returns the decimal string representation rounded to resultFrac.
-func (d *Decimal) String() string {
-	tmp := *d
-	err := tmp.RoundTo(&tmp, int(tmp.resultFrac), ModeHalfEven)
+func (d Decimal) String() string {
+	err := d.RoundTo(&d, int(d.resultFrac), ModeHalfEven)
 	if err != nil {
 		log.Println(errors.Trace(err))
 	}
-	return string(tmp.ToString())
+	return string(d.ToString())
 }
 
 func (d *Decimal) stringSize() int {
@@ -1933,8 +1933,23 @@ func (d *Decimal) ToDB() ([]byte, error) {
 	return d.ToString(), nil
 }
 
+func (d *Decimal) Value() (driver.Value, error) {
+	return string(d.ToString()), nil
+}
+
+func (d *Decimal) Scan (value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		*d = *NewDecFromStringMust(v)
+	case []byte:
+		*d = *NewDecFromStringMust(string(v))
+	}
+
+	return nil
+}
+
 func (d *Decimal) FromForm(v []string) error {
-	if len(v) == 0 || v[0] == ""{
+	if len(v) == 0 || v[0] == "" {
 		return nil
 	}
 	return d.FromString([]byte(v[0]))
