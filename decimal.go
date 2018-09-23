@@ -1879,7 +1879,7 @@ func (d *Decimal) LessOrEqual(to *Decimal) bool {
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
-func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
+func (d Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	if string(decimalBytes) == "null" {
 		return nil
 	}
@@ -1891,7 +1891,7 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 
 	dec, err := NewDecFromString(str)
 	dec.marshalJSONWithoutQuotes = quote
-	*d = *dec
+	d = *dec
 	if err != nil {
 		return fmt.Errorf("Error decoding string '%s': %s", str, err)
 	}
@@ -1899,7 +1899,7 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (d *Decimal) MarshalJSON() ([]byte, error) {
+func (d Decimal) MarshalJSON() ([]byte, error) {
 	var str string
 	if d.marshalJSONWithoutQuotes {
 		str = d.String()
@@ -1909,40 +1909,38 @@ func (d *Decimal) MarshalJSON() ([]byte, error) {
 	return []byte(str), nil
 }
 
-func (d *Decimal) GetBSON() (interface{}, error) {
+func (d Decimal) GetBSON() (interface{}, error) {
 	return d.ToFloat64()
 }
 
-func (d *Decimal) SetBSON(raw bson.Raw) error {
+func (d Decimal) SetBSON(raw bson.Raw) error {
 	var f float64
 	e := raw.Unmarshal(&f)
 	if e == nil {
-		*d = *NewDecFromFloat(f)
+		d = *NewDecFromFloat(f)
 	}
 	return e
 }
 
-func (d *Decimal) FromDB(data []byte) error {
+func (d Decimal) FromDB(data []byte) error {
 	return d.FromString(data)
 }
 
-func (d *Decimal) ToDB() ([]byte, error) {
-	if d == nil {
-		return nil, nil
-	}
+func (d Decimal) ToDB() ([]byte, error) {
+
 	return d.ToString(), nil
 }
 
-func (d *Decimal) Value() (driver.Value, error) {
+func (d Decimal) Value() (driver.Value, error) {
 	return string(d.ToString()), nil
 }
 
-func (d *Decimal) Scan (value interface{}) error {
+func (d Decimal) Scan (value interface{}) error {
 	switch v := value.(type) {
 	case string:
-		*d = *NewDecFromStringMust(v)
+		d = *NewDecFromStringMust(v)
 	case []byte:
-		*d = *NewDecFromStringMust(string(v))
+		d = *NewDecFromStringMust(string(v))
 	}
 
 	return nil
