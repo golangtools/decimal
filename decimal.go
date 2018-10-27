@@ -59,7 +59,7 @@ const (
 	wordMax       = wordBase - 1
 	notFixedDec   = 31
 
-	DivFracIncr = 4
+	DivFracIncr = 8
 
 	// ModeHalfEven rounds normally.
 	ModeHalfEven RoundMode = "ModeHalfEven"
@@ -1065,11 +1065,12 @@ func (d *Decimal) Round(frac int, roundMode ...RoundMode) *Decimal {
 	if len(roundMode) > 0 {
 		rm = roundMode[0]
 	}
-	err := d.RoundTo(d, frac, rm)
+	ret := &Decimal{}
+	err := d.RoundTo(ret, frac, rm)
 	if err != nil {
 		panic(err)
 	}
-	return d
+	return ret
 }
 
 // FromInt sets the decimal value from int64.
@@ -1608,6 +1609,8 @@ func (d *Decimal) Div(from *Decimal, fracIncr ...int) *Decimal {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
+	} else {
+		fi = DivFracIncr
 	}
 	ret := new(Decimal)
 	err := DecimalDiv(d, from, ret, fi)
@@ -1909,7 +1912,10 @@ func (d *Decimal) MarshalJSON() ([]byte, error) {
 	return []byte(str), nil
 }
 
-func (d Decimal) GetBSON() (interface{}, error) {
+func (d *Decimal) GetBSON() (interface{}, error) {
+	if d == nil {
+		return 0, nil
+	}
 	return d.ToFloat64()
 }
 
