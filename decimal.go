@@ -1609,8 +1609,6 @@ func (d *Decimal) Div(from *Decimal, fracIncr ...int) *Decimal {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
-	} else {
-		fi = DivFracIncr
 	}
 	ret := new(Decimal)
 	err := DecimalDiv(d, from, ret, fi)
@@ -1660,8 +1658,6 @@ func (d *Decimal) DivInt(from int64, fracIncr ...int) *Decimal {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
-	} else {
-		fi = DivFracIncr
 	}
 	ret := new(Decimal)
 	err := DecimalDiv(d, NewDecFromInt(from), ret, fi)
@@ -1711,8 +1707,6 @@ func (d *Decimal) DivFloat(from float64, fracIncr ...int) *Decimal {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
-	} else {
-		fi = DivFracIncr
 	}
 	ret := new(Decimal)
 	err := DecimalDiv(d, NewDecFromFloat(from), ret, fi)
@@ -1774,10 +1768,7 @@ func (d *Decimal) DivString(from string, fracIncr ...int) (*Decimal, error) {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
-	} else {
-		fi = DivFracIncr
 	}
-
 	dm, err := NewDecFromString(from)
 	if err != nil {
 		return nil, err
@@ -2448,6 +2439,9 @@ func DecimalMul(from1, from2, to *Decimal) error {
 // fracIncr - increment of fraction
 func DecimalDiv(from1, from2, to *Decimal, fracIncr int) error {
 	to.resultFrac = myMinInt8(from1.resultFrac+int8(fracIncr), MaxDecimalScale)
+	if fracIncr == 0 && to.resultFrac < DivFracIncr {
+		to.resultFrac = DivFracIncr
+	}
 	return doDivMod(from1, from2, to, nil, fracIncr)
 }
 
