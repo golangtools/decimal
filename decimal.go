@@ -17,13 +17,13 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/juju/errors"
-	"log"
-	"unicode"
-	"strings"
-	"fmt"
-	"gopkg.in/mgo.v2/bson"
 	"database/sql/driver"
+	"fmt"
+	"github.com/juju/errors"
+	"gopkg.in/mgo.v2/bson"
+	"log"
+	"strings"
+	"unicode"
 )
 
 // RoundMode is the type for round mode.
@@ -1660,6 +1660,8 @@ func (d *Decimal) DivInt(from int64, fracIncr ...int) *Decimal {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
+	} else {
+		fi = DivFracIncr
 	}
 	ret := new(Decimal)
 	err := DecimalDiv(d, NewDecFromInt(from), ret, fi)
@@ -1709,6 +1711,8 @@ func (d *Decimal) DivFloat(from float64, fracIncr ...int) *Decimal {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
+	} else {
+		fi = DivFracIncr
 	}
 	ret := new(Decimal)
 	err := DecimalDiv(d, NewDecFromFloat(from), ret, fi)
@@ -1770,6 +1774,8 @@ func (d *Decimal) DivString(from string, fracIncr ...int) (*Decimal, error) {
 	fi := 0
 	if len(fracIncr) > 0 {
 		fi = fracIncr[0]
+	} else {
+		fi = DivFracIncr
 	}
 
 	dm, err := NewDecFromString(from)
@@ -1943,7 +1949,7 @@ func (d *Decimal) Value() (driver.Value, error) {
 	return string(d.ToString()), nil
 }
 
-func (d *Decimal) Scan (value interface{}) error {
+func (d *Decimal) Scan(value interface{}) error {
 	switch v := value.(type) {
 	case string:
 		*d = *NewDecFromStringMust(v)
