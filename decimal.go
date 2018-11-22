@@ -2442,6 +2442,10 @@ func DecimalDiv(from1, from2, to *Decimal, fracIncr int) error {
 	if fracIncr == 0 && to.resultFrac < DivFracIncr {
 		to.resultFrac = DivFracIncr
 	}
+	if from1.digitsFrac == 0 && from1.resultFrac == 0 {
+		from1.digitsFrac = DivFracIncr
+		from1.resultFrac = DivFracIncr
+	}
 	return doDivMod(from1, from2, to, nil, fracIncr)
 }
 
@@ -2742,6 +2746,9 @@ func NewDecimal(digitsFrac ...int8) *Decimal {
 	if len(digitsFrac) > 0 {
 		d.digitsFrac = digitsFrac[0]
 		d.resultFrac = digitsFrac[0]
+	} else {
+		d.digitsFrac = DivFracIncr
+		d.resultFrac = DivFracIncr
 	}
 	return d
 }
@@ -2777,10 +2784,7 @@ func NewDecFromString(s string) (*Decimal, error) {
 // NewDecFromStringMust creates a Decimal from string, as it returns no error.
 func NewDecFromStringMust(s string) *Decimal {
 	dec := NewDecimal()
-	err := dec.FromString([]byte(s))
-	if err != nil {
-		log.Println(errors.Trace(err))
-	}
+	dec.FromString([]byte(s))
 	return dec
 }
 
