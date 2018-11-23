@@ -344,6 +344,18 @@ func (d *Decimal) GetDigitsFrac() int8 {
 	return d.digitsFrac
 }
 
+func (d *Decimal) SetDigitsFrac(v int8) {
+	d.digitsFrac = v
+}
+
+func (d *Decimal) GetResultFrac() int8 {
+	return d.resultFrac
+}
+
+func (d *Decimal) SetResultFrac(v int8) {
+	d.resultFrac = v
+}
+
 func (d *Decimal) SetMarshalJSONWithoutQuotes(v bool) *Decimal {
 	d.marshalJSONWithoutQuotes = v
 	return d
