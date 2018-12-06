@@ -29,7 +29,7 @@ import (
 // RoundMode is the type for round mode.
 type RoundMode string
 
-var MarshalJSONWithoutQuotes bool
+var MarshalJSONWithoutQuotes bool = true
 
 var (
 	ErrOverflow  = errors.New("value is out of range")
@@ -67,6 +67,12 @@ const (
 	ModeTruncate RoundMode = "Truncate"
 	// Ceiling is not supported now.
 	modeCeiling RoundMode = "Ceiling"
+)
+
+const (
+	JSONWithoutQuotesNone int8 = 0
+	JSONWithoutQuotesYes int8 = 1
+	JSONWithoutQuotesNo int8 = 2
 )
 
 var (
@@ -327,7 +333,7 @@ type Decimal struct {
 
 	negative bool
 
-	marshalJSONWithoutQuotes bool
+	marshalJSONWithoutQuotes int8
 
 	//  wordBuf is an array of int32 words.
 	// A word is an int32 value can hold 9 digits.(0 <= word < wordBase)
@@ -357,12 +363,16 @@ func (d *Decimal) SetResultFrac(v int8) {
 }
 
 func (d *Decimal) SetMarshalJSONWithoutQuotes(v bool) *Decimal {
-	d.marshalJSONWithoutQuotes = v
+	if v {
+		d.marshalJSONWithoutQuotes = JSONWithoutQuotesYes
+	} else {
+		d.marshalJSONWithoutQuotes = JSONWithoutQuotesNo
+	}
 	return d
 }
 
 func (d *Decimal) MarshalJSONWithoutQuotes() bool {
-	return d.marshalJSONWithoutQuotes
+	return d.marshalJSONWithoutQuotes == JSONWithoutQuotesYes
 }
 
 func (d Decimal) String() string {
@@ -480,6 +490,10 @@ func (d *Decimal) ToString() (str []byte) {
 
 // FromString parses decimal from string.
 func (d *Decimal) FromString(str []byte) error {
+	for i := 0; i < len(d.wordBuf); i++ {
+		d.wordBuf[i] = 0
+	}
+
 	for i := 0; i < len(str); i++ {
 		if !isSpace(str[i]) {
 			str = str[i:]
@@ -1099,6 +1113,13 @@ func (d *Decimal) FromInt(val int64) *Decimal {
 
 // FromUint sets the decimal value from uint64.
 func (d *Decimal) FromUint(val uint64) *Decimal {
+	for i := 0; i < len(d.wordBuf); i++ {
+		d.wordBuf[i] = 0
+	}
+	if val == 0 {
+		d.negative = false
+	}
+
 	x := val
 	wordIdx := 1
 	for x >= wordBase {
@@ -1902,7 +1923,7 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	}
 
 	dec, err := NewDecFromString(str)
-	dec.marshalJSONWithoutQuotes = quote
+	dec.SetMarshalJSONWithoutQuotes(quote)
 	*d = *dec
 	if err != nil {
 		return fmt.Errorf("Error decoding string '%s': %s", str, err)
@@ -1913,7 +1934,10 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 // MarshalJSON implements the json.Marshaler interface.
 func (d *Decimal) MarshalJSON() ([]byte, error) {
 	var str string
-	if d.marshalJSONWithoutQuotes {
+	if d.marshalJSONWithoutQuotes == JSONWithoutQuotesNone {
+		d.SetMarshalJSONWithoutQuotes(MarshalJSONWithoutQuotes)
+	}
+	if d.MarshalJSONWithoutQuotes() {
 		str = d.String()
 	} else {
 		str = "\"" + d.String() + "\""
@@ -2754,7 +2778,7 @@ func DecimalPeak(b []byte) (int, error) {
 
 func NewDecimal(digitsFrac ...int8) *Decimal {
 	d := new(Decimal)
-	d.marshalJSONWithoutQuotes = MarshalJSONWithoutQuotes
+	d.SetMarshalJSONWithoutQuotes(MarshalJSONWithoutQuotes)
 	if len(digitsFrac) > 0 {
 		d.digitsFrac = digitsFrac[0]
 		d.resultFrac = digitsFrac[0]
